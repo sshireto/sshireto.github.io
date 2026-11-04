@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>הבר שלנו</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Karantina:wght@400;700&family=Assistant:wght@400;600;700&display=swap">
+<style>
+/* Layout: a home bar notebook. Sticky tab header, taste + pantry controls, one column of recipe cards; inventory = bottle cards with "יש / נגמר" switches. */
+:root{
+  --bg:#F3F4F1; --surface:#FFFFFF; --ink:#1B2233; --muted:#5D6578; --line:#DDE0E6;
+  --ai:#2E4A8B; --ai-soft:#E3E9F6;
+  --sour:#A9B51E; --sweet:#D0567A; --bitter:#B23A2A;
+  --track:#E7E9EE; --warn-bg:#FFF4D6; --warn-fg:#7A5600; --ok:#2F7A4B;
+  --font-display:"Karantina","Assistant","Arial Hebrew",system-ui,sans-serif;
+  --font-body:"Assistant","Arial Hebrew","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  --font-jp:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#11151E;--surface:#1A2030;--ink:#E8EBF2;--muted:#9AA3B8;--line:#2B3346;
+  --ai:#8FA9E8;--ai-soft:#24304A;--sour:#C9D445;--sweet:#EE7D9E;--bitter:#F07A63;--track:#2A3245;
+  --warn-bg:#3A3112;--warn-fg:#F2D27A;--ok:#6CCB8F;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11151E;--surface:#1A2030;--ink:#E8EBF2;--muted:#9AA3B8;--line:#2B3346;
+  --ai:#8FA9E8;--ai-soft:#24304A;--sour:#C9D445;--sweet:#EE7D9E;--bitter:#F07A63;--track:#2A3245;
+  --warn-bg:#3A3112;--warn-fg:#F2D27A;--ok:#6CCB8F;color-scheme:dark}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:16px;line-height:1.5}
+img{max-width:100%}
+[hidden]{display:none!important}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:720px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.jp{font-family:var(--font-jp);direction:ltr;unicode-bidi:isolate}
+a{color:var(--ai)}
+a:focus-visible,button:focus-visible,summary:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
+
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+header.top .wrap{padding-block:12px 0}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+h1{font-family:var(--font-display);font-weight:700;font-size:2.6rem;line-height:1;margin:0}
+.unit{font-size:.8rem;color:var(--muted);text-align:left}
+.tabs{display:flex;gap:4px;margin-top:10px}
+.tabs button{flex:1;font:inherit;font-weight:700;font-size:1rem;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:8px 4px;cursor:pointer}
+.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ai)}
+main .wrap{padding-block:16px 48px}
+
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:inherit;font-weight:600;font-size:.95rem;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:6px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.chip .dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip[data-f="citrus"] .dot,.chip[data-f="sour"] .dot{background:var(--sour)}
+.chip[data-f="sweet"] .dot,.chip[data-f="fruity"] .dot{background:var(--sweet)}
+.chip[data-f="bitter"] .dot,.chip[data-f="dry"] .dot{background:var(--bitter)}
+.chips.small .chip{font-size:.85rem;padding:4px 11px}
+.chip .cnt{font-size:.75rem;opacity:.7;font-variant-numeric:tabular-nums}
+.chip.have[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.box{margin-top:12px;border:1.5px solid var(--line);border-radius:12px;background:var(--surface);padding:8px 12px}
+.box summary{font-weight:700;cursor:pointer;font-size:.95rem}
+.box summary span{font-weight:600;color:var(--ai)}
+.box .chips{margin:10px 0 4px}
+.box .hint{font-size:.82rem;color:var(--muted);margin:6px 0 2px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:12px}
+.vlbl{font-weight:700;font-size:.92rem;margin-inline-end:4px}
+.seg{font:inherit;font-weight:600;font-size:.9rem;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:5px 12px;cursor:pointer;font-variant-numeric:tabular-nums}
+.seg[aria-pressed="true"]{background:var(--ai);border-color:var(--ai);color:var(--surface)}
+.switch{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:.95rem;cursor:pointer}
+.switch input{width:20px;height:20px;accent-color:var(--ai)}
+.filter-note{font-size:.88rem;color:var(--muted);margin:10px 0 0;min-height:1.3em}
+.count{font-size:.85rem;color:var(--muted);margin:14px 0 8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.addbtn{font:inherit;font-size:.82rem;font-weight:700;border:1.5px dashed var(--ok);color:var(--ok);background:none;border-radius:999px;padding:2px 10px;cursor:pointer}
+.note{background:var(--warn-bg);color:var(--warn-fg);border-radius:10px;padding:10px 12px;font-size:.9rem;margin:0}
+
+.list{display:grid;gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:12px;min-width:0}
+.card.missing{border-style:dashed}
+.card h2{font-family:var(--font-display);font-size:1.9rem;font-weight:700;line-height:1;margin:0;text-wrap:balance}
+.card .sub{font-size:.85rem;color:var(--muted);margin-top:4px}
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.abv{flex:none;text-align:center;font-variant-numeric:tabular-nums;border:1.5px solid var(--line);border-radius:10px;padding:4px 8px;font-size:.75rem;color:var(--muted);line-height:1.2}
+.abv b{display:block;font-size:1.1rem;color:var(--ink)}
+.abv.boosted{border-color:var(--ai)} .abv.boosted b{color:var(--ai)}
+.meters{display:grid;gap:6px}
+.meter{display:grid;grid-template-columns:4.6rem 1fr 1.6rem;align-items:center;gap:8px;font-size:.9rem}
+.meter .lbl{font-weight:600}
+.bar{display:grid;grid-template-columns:repeat(5,1fr);gap:3px}
+.bar i{height:10px;border-radius:3px;background:var(--track);position:relative;overflow:hidden}
+.bar i span{position:absolute;inset:0 0 0 auto;width:0;background:var(--c)}
+.meter .n{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.8rem;text-align:left}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-size:.78rem;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--ai-soft);color:var(--ai)}
+.tag.miss{background:var(--warn-bg);color:var(--warn-fg)}
+.cvod{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.cvod .seg{font-size:.85rem;padding:4px 10px}
+.cvod.no{font-size:.82rem;color:var(--muted)}
+.ings{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.ing{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;min-width:0}
+.thumb{width:56px;height:76px;border-radius:8px;background:#fff;border:1px solid var(--line);overflow:hidden;display:grid;place-items:center;color:var(--ai)}
+.thumb img{width:100%;height:100%;object-fit:contain}
+.thumb img.crop{object-fit:cover}
+.thumb svg{width:34px;height:52px}
+.ing .nm{font-weight:700;line-height:1.25;min-width:0}
+.ing .nm small{display:block;font-weight:400;color:var(--muted);font-size:.78rem}
+.ing .nm a{font-weight:600;font-size:.8rem}
+.ing.hit .nm{color:var(--ai)} .ing.hit .thumb{border-color:var(--ai);border-width:2px}
+.ing.out .nm::after{content:" · אין בבית";color:var(--warn-fg);font-weight:600;font-size:.8rem}
+.ing.opt .nm::after{content:" · לא חובה";color:var(--muted);font-weight:400;font-size:.8rem}
+.ml{font-variant-numeric:tabular-nums;font-weight:700;font-size:1.05rem;text-align:left;white-space:nowrap}
+.ml small{display:block;font-weight:400;font-size:.72rem;color:var(--muted);white-space:normal;max-width:7rem}
+.steps{margin:0;padding-inline-start:1.2rem;display:grid;gap:4px;font-size:.95rem}
+.why{font-size:.9rem;color:var(--muted);margin:0}
+
+.bottle{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;grid-template-columns:110px 1fr;gap:14px;min-width:0}
+.bottle.gone{opacity:.6}
+.bottle .pic{display:grid;gap:6px;align-content:start}
+.bottle .main{width:110px;height:170px;border-radius:10px;background:#fff;border:1px solid var(--line);overflow:hidden;display:grid;place-items:center}
+.bottle .main img{width:100%;height:100%;object-fit:contain}
+.bottle .main img.crop{object-fit:cover}
+.yours{display:flex;align-items:center;gap:6px;font-size:.7rem;color:var(--muted)}
+.yours img{width:34px;height:46px;object-fit:cover;border-radius:5px;border:1px solid var(--line)}
+.bottle .body{min-width:0;display:grid;gap:6px;align-content:start}
+.bottle h4{margin:0;font-size:1.15rem;line-height:1.25}
+.orig{font-size:.85rem;color:var(--muted)}
+.facts{display:flex;flex-wrap:wrap;gap:6px}
+.fact{font-size:.78rem;border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-variant-numeric:tabular-nums}
+.bottle p{margin:0;font-size:.93rem}
+.links{display:flex;flex-wrap:wrap;gap:4px 14px;font-weight:600;font-size:.9rem}
+.imgnote{font-size:.76rem;color:var(--warn-fg);background:var(--warn-bg);border-radius:6px;padding:2px 7px;justify-self:start}
+.stock{justify-self:start}
+h3.sec{font-family:var(--font-display);font-size:1.7rem;margin:22px 0 10px}
+@media (max-width:400px){.bottle{grid-template-columns:88px 1fr}.bottle .main{width:88px;height:140px}h1{font-size:2.2rem}}
+@media (prefers-reduced-motion:no-preference){.bar i span{transition:width .35s ease}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>הבר שלנו</h1>
+      <div class="unit">כמויות במ״ל<br>שוט ≈ 30 מ״ל</div>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-c" aria-selected="true" aria-controls="view-c">קוקטיילים</button>
+      <button role="tab" id="tab-i" aria-selected="false" aria-controls="view-i">מה יש בבית</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="view-c" class="wrap" role="tabpanel" aria-labelledby="tab-c">
+    <div class="chips" id="chips"></div>
+    <details class="box" id="pantry"><summary>מיקסרים ופירות בבית <span id="pansum"></span></summary>
+      <p class="hint">סמנו מה יש עכשיו. הבחירה נשמרת בטלפון הזה.</p>
+      <div class="chips small" id="panchips"></div></details>
+    <details class="box" id="ingf"><summary>סינון לפי מרכיב <span id="ingsum"></span></summary>
+      <div class="chips small" id="ingchips"></div></details>
+    <div class="row"><label class="switch"><input type="checkbox" id="nowonly" checked> רק מה שאפשר להכין עכשיו</label></div>
+    <div class="row" id="vod" role="group" aria-label="חיזוק בוודקה"></div>
+    <p class="filter-note" id="fnote"></p>
+    <div class="count" id="count"></div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <section id="view-i" class="wrap" role="tabpanel" aria-labelledby="tab-i" hidden>
+    <p class="filter-note" style="margin-top:0">בקבוק נגמר? לחצו „נגמר” והקוקטיילים שלו יוסתרו.</p>
+    <div class="list" id="inv"></div>
+    <h3 class="sec">מיקסרים ופירות</h3>
+    <div class="list" id="mix"></div>
+  </section>
+</main>
+
+<script>
+/* ---------- bottles ---------- */
+const B = {
+  vodka:{he:"וודקה פינלנדיה",orig:"Finlandia Vodka",type:"וודקה",abv:40,vol:"700 מ״ל",
+    desc:"וודקה פינית משעורה ומי מעיין קרחוניים.",taste:"נקייה וחלקה, כמעט בלי טעם. מוסיפה כוח בלי לשנות את המשקה.",img:"",info:""},
+  coco:{he:"קוקו ד׳אמור (ליקר קוקוס)",orig:"Coco D'Amour",type:"ליקר קוקוס",abv:15,vol:"700 מ״ל",
+    desc:"ליקר קוקוס טרופי מאיי סיישל, בבקבוק בצורת אגוז קוקו־דה־מר.",taste:"קוקוס מתוק וקרמי, טרופי.",img:"",info:""},
+  gf:{he:"בסיס אשכולית סאוור (ספורו)",orig:"サッポロ 濃いめのグレフルサワーの素",jp:true,type:"תרכיז אשכולית־סאוור (לדילול)",abv:25,vol:"500 מ״ל",
+    desc:"תרכיז אשכולית לדילול. מוזגים 1 חלק ל־3 חלקים סודה ומקבלים משקה של כ־6%.",taste:"אשכולית חמצמצה ועסיסית, מרירות קלה של קליפה.",img:"",info:""},
+  lemonsour:{he:"בסיס לימון סאוור (ספורו)",orig:"サッポロ 濃いめのレモンサワーの素",jp:true,type:"תרכיז לימון־סאוור (לדילול)",abv:25,vol:"500 מ״ל",
+    desc:"תרכיז לימון־סאוור לדילול. 1 חלק ל־3 חלקים סודה.",taste:"לימון חמוץ ומרוכז, מתיקות קלה.",img:"",info:""},
+  pinkgf:{he:"בסיס אשכולית ורודה סאוור",orig:"にごりピンクグレープフルーツサワーの素",jp:true,type:"תרכיז אשכולית ורודה (לדילול)",abv:23,vol:"",
+    desc:"תרכיז עכור (ניגורי) עם ממרח אשכולית ורודה. היצרן לא מזוהה בוודאות. מדללים בסודה, בערך 1 ל־3.",taste:"אשכולית ורודה עסיסית, מתוקה יותר מהאשכולית הרגילה.",img:"",info:""},
+  limoncello:{he:"לימונצ׳לו פליני",orig:"Pallini Limoncello",type:"ליקר לימון",abv:26,vol:"",
+    desc:"ליקר לימון איטלקי מלימוני אמלפי, לפי מתכון משפחתי מרומא. מגישים קר מאוד.",taste:"מתוק ולימוני, ריח חזק של קליפת לימון.",img:"",info:""},
+  bourbon:{he:"וודפורד רזרב (בורבון)",orig:"Woodford Reserve Distiller's Select",type:"בורבון קנטקי",abv:43.2,vol:"1 ל׳",
+    desc:"בורבון קנטקי סטרייט.",taste:"קרמל, וניל, פירות יבשים ותבלינים. עשיר וחלק.",img:"",info:""},
+  choya:{he:"צ׳ויה סינגל יר (אומשו)",orig:"The CHOYA Single Year · 熟成一年",type:"ליקר שזיפי אומה",abv:17,vol:"",
+    desc:"אומשו מיושן שנה, מ־100% שזיפי נאנקו ממחוז קישו.",taste:"שזיף־משמש מתוק־חמצמץ, עגול ועשיר.",img:"",info:""},
+  genepi:{he:"ג׳נפי (ליקר עשבים אלפיני)",orig:"Génépi · Liquoristerie de la Vanoise",type:"ליקר עשבים",abv:40,vol:"200 מ״ל",
+    desc:"ליקר אלפיני בייצור מקומי מפרלוניאן־לה־ונואז שבסבואה, מצמח הג׳נפי (לענה הררית). שותים בדרך כלל אחרי הארוחה.",taste:"צמחי ומריר־מתוק, קמומיל ועשבי הרים.",img:"",info:""},
+  cognac:{he:"רמי מרטן VSOP (קוניאק)",orig:"Rémy Martin V.S.O.P",type:"קוניאק פין שמפאן",abv:40,vol:"700 מ״ל",
+    desc:"קוניאק פין שמפאן.",taste:"משמש, וניל, פירות בשלים ועץ. חלק.",img:"",info:""},
+  amaretto:{he:"דיסרונו (אמרטו)",orig:"Disaronno Originale",type:"ליקר אמרטו",abv:28,vol:"1 ל׳",
+    desc:"ליקר אמרטו איטלקי מסרונו.",taste:"שקדים, מרציפן וקרמל. מתוק.",img:"",info:""},
+  campari:{he:"קמפרי",orig:"Campari Bitter",type:"ביטר איטלקי",abv:25,vol:"",
+    desc:"ביטר אדום ממילאנו, הבסיס של נגרוני ואמריקנו.",taste:"מריר חזק, קליפת תפוז ועשבים, מתיקות בסיסית.",img:"",info:""},
+};
+/* ---------- mixers, fresh, pantry ---------- */
+const M = {
+  lemon:{he:"לימון",kind:"fresh",icon:"citrus",col:"#E3C727",note:"חצי לימון ≈ 20–25 מ״ל מיץ"},
+  lime:{he:"ליים",kind:"fresh",icon:"citrus",col:"#7DB23A",note:"ליים אחד ≈ 20–30 מ״ל מיץ"},
+  mint:{he:"נענע",kind:"fresh",icon:"leaf",col:"#3E9A5A"},
+  orange:{he:"תפוז",kind:"fresh",icon:"citrus",col:"#EE8A1F",note:"תפוז אחד ≈ 60–80 מ״ל מיץ"},
+  soda:{he:"סודה",kind:"mixer",icon:"can",col:"#8FB3D9"},
+  tonic:{he:"טוניק",kind:"mixer",icon:"can",col:"#BFD7C6"},
+  ginger:{he:"ג׳ינג׳ר אייל",kind:"mixer",icon:"can",col:"#D9B36A"},
+  sprite:{he:"ספרייט / 7אפ",kind:"mixer",icon:"can",col:"#8CCB7A"},
+  cola:{he:"קולה",kind:"mixer",icon:"can",col:"#6B3A2A"},
+  pineapple:{he:"מיץ אננס",kind:"mixer",icon:"carton",col:"#F2C94C"},
+  sugar:{he:"סירופ סוכר",kind:"pantry",icon:"jar",col:"#E8E2D0",note:"סוכר ומים חמים 1:1"},
+  milk:{he:"חלב",kind:"pantry",icon:"carton",col:"#F4F4F4"},
+  espresso:{he:"אספרסו",kind:"pantry",icon:"cup",col:"#5A3A22"},
+};
+const DEFAULT_HAVE=[...Object.keys(B),"lemon","lime","mint","orange"];
+
+/* ---------- recipes ----------
+   i: [key, ml, label?, optional?]  ml counts toward volume/ABV. s/w/b = sour/sweet/bitter 0–5. */
+const C = [
+ {he:"לימון סאוור",en:"Lemon Sour",s:4,w:2,b:0,t:["citrus"],i:[["lemonsour",45],["soda",135]],st:["כוס גבוהה מלאה קרח.","45 מ״ל בסיס לימון.","סודה עד למעלה, ערבוב אחד עדין."],why:"הסאוור היפני הקלאסי. חמוץ ומרענן."},
+ {he:"אשכולית סאוור",en:"Grapefruit Sour",s:3.5,w:1.5,b:1.5,t:["citrus"],i:[["gf",45],["soda",135]],st:["כוס גבוהה מלאה קרח.","45 מ״ל בסיס אשכולית.","סודה עד למעלה, ערבוב אחד."],why:"חמוץ עם מרירות קלה של קליפה."},
+ {he:"אשכולית ורודה סאוור",en:"Pink Grapefruit Sour",s:3,w:2.5,b:1,t:["citrus","fruity"],i:[["pinkgf",45],["soda",135]],st:["מנערים את הבקבוק לפני מזיגה (יש בו ממרח).","כוס גבוהה מלאה קרח, 45 מ״ל בסיס.","סודה, ערבוב."],why:"עסיסי ומתוק יותר מהאשכולית הרגילה."},
+ {he:"גרייהאונד סודה",en:"Greyhound Soda",s:3,w:1,b:1.5,t:["citrus","dry"],i:[["vodka",30],["gf",30],["soda",120]],st:["כוס גבוהה מלאה קרח.","30 מ״ל וודקה ו־30 מ״ל בסיס אשכולית.","סודה, ערבוב אחד."],why:"הגרסה החזקה והנקייה של אשכולית סאוור."},
+ {he:"לימון הייבול בורבון",en:"Bourbon Lemon Highball",s:2,w:1,b:1,t:["dry"],i:[["bourbon",30],["lemonsour",15],["soda",120],["lemon",0,"פרוסה",1]],st:["כוס גבוהה מלאה קרח.","30 מ״ל בורבון ו־15 מ״ל בסיס לימון.","סודה לאט לאורך הקרח, פרוסת לימון."],why:"הייבול עם נגיעת לימון. יבש וקליל."},
+ {he:"לימונצ׳לו סאוור",en:"Limoncello Sour Soda",s:3.5,w:3,b:0,t:["citrus"],i:[["limoncello",30],["lemonsour",30],["soda",120]],st:["כוס גבוהה מלאה קרח.","30 מ״ל לימונצ׳לו ו־30 מ״ל בסיס לימון.","סודה, ערבוב."],why:"לימון כפול: מתוק מהלימונצ׳לו, חמוץ מהבסיס."},
+ {he:"אומה לימון סאוור",en:"Ume Lemon Sour",s:3,w:2.5,b:0,t:["citrus","fruity"],i:[["choya",45],["lemonsour",20],["soda",120]],st:["כוס גבוהה מלאה קרח.","45 מ״ל צ׳ויה ו־20 מ״ל בסיס לימון.","סודה, ערבוב."],why:"אומשו עם יותר חמיצות ופחות סוכר."},
+ {he:"ג׳נפי לימון סודה",en:"Génépi Lemon Soda",s:2.5,w:1.5,b:2,t:["citrus"],i:[["genepi",30],["lemonsour",15],["soda",120],["mint",0,"ענף",1]],st:["כוס גבוהה מלאה קרח.","30 מ״ל ג׳נפי ו־15 מ״ל בסיס לימון.","סודה, ענף נענע."],why:"צמחי ומרענן. דרך טובה להכיר את הג׳נפי."},
+ {he:"אמרטו סאוור",en:"Amaretto Sour",s:3,w:3,b:0.5,t:["citrus"],i:[["amaretto",50],["lemon",25,"25 מ״ל מיץ"]],st:["שייקר עם קרח: 50 מ״ל דיסרונו ו־25 מ״ל מיץ לימון.","מנערים חזק 10 שניות.","מסננים לכוס נמוכה עם קרח טרי."],why:"מתוק־חמוץ ושקדי. קלאסיקה."},
+ {he:"וויסקי סאוור",en:"Whiskey Sour",s:3,w:2.5,b:0.5,t:["citrus"],i:[["bourbon",50],["lemon",25,"25 מ״ל מיץ"],["sugar",15]],st:["שייקר עם קרח: בורבון, מיץ לימון וסירופ סוכר.","מנערים חזק.","מסננים לכוס נמוכה עם קרח."],why:"מאוזן: חמוץ, מתוק ועץ."},
+ {he:"קוניאק סאוור",en:"Brandy Sour",s:3,w:2.5,b:0.5,t:["citrus"],i:[["cognac",50],["lemon",25,"25 מ״ל מיץ"],["sugar",15]],st:["שייקר עם קרח: קוניאק, מיץ לימון וסירופ.","מנערים חזק.","מסננים לכוס נמוכה עם קרח."],why:"כמו וויסקי סאוור, פירותי ועדין יותר."},
+ {he:"לימון דרופ",en:"Limoncello Lemon Drop",s:3,w:3,b:0,t:["citrus"],i:[["vodka",30],["limoncello",30],["lemon",15,"15 מ״ל מיץ"]],st:["שייקר עם קרח: וודקה, לימונצ׳לו ומיץ לימון.","מנערים חזק.","מסננים לכוס קוקטייל קרה, בלי קרח."],why:"חמוץ־מתוק וחזק. מוגש קר מאוד."},
+ {he:"וודקה סמאש",en:"Vodka Mint Smash",s:3,w:2.5,b:0,t:["citrus"],i:[["vodka",45],["lime",20,"20 מ״ל מיץ"],["sugar",15],["mint",0,"8 עלים"],["soda",60]],st:["מועכים בעדינות נענע עם סירופ ומיץ ליים בכוס.","מוסיפים וודקה וקרח כתוש או קוביות.","משלימים בסודה, ערבוב מלמטה למעלה."],why:"כמו מוחיטו, עם וודקה במקום רום."},
+ {he:"בורבון סמאש",en:"Whiskey Smash",s:2.5,w:2.5,b:0.5,t:["citrus"],i:[["bourbon",50],["lemon",20,"20 מ״ל מיץ"],["sugar",15],["mint",0,"8 עלים"]],st:["מועכים נענע עם סירופ ומיץ לימון בשייקר.","מוסיפים בורבון וקרח, מנערים.","מסננים לכוס נמוכה עם קרח, ענף נענע."],why:"בורבון רענן עם נענע ולימון."},
+ {he:"מוסקו מיול",en:"Moscow Mule",s:2,w:2.5,b:0.5,t:[],i:[["vodka",45],["lime",15,"15 מ״ל מיץ"],["ginger",120]],st:["כוס גבוהה מלאה קרח.","45 מ״ל וודקה ו־15 מ״ל מיץ ליים.","ג׳ינג׳ר אייל, פלח ליים."],why:"חריף־ג׳ינג׳רי ורענן."},
+ {he:"וודקה סודה ליים",en:"Vodka Soda Lime",s:1.5,w:0,b:0,t:["dry"],i:[["vodka",45],["lime",10,"10 מ״ל מיץ"],["soda",135]],st:["כוס גבוהה מלאה קרח.","45 מ״ל וודקה ו־10 מ״ל מיץ ליים.","סודה, פלח ליים."],why:"הכי יבש וקליל. בלי סוכר בכלל."},
+ {he:"קמפרי סודה",en:"Campari Soda",s:0.5,w:1.5,b:3.5,t:["dry"],i:[["campari",45],["soda",120],["orange",0,"פרוסה",1]],st:["כוס גבוהה מלאה קרח.","45 מ״ל קמפרי.","סודה, פרוסת תפוז."],why:"מריר ויבש. אפריטיף איטלקי קלאסי."},
+ {he:"קמפרי טוניק",en:"Campari Tonic",s:0.5,w:2,b:4,t:[],i:[["campari",45],["tonic",120],["orange",0,"פרוסה",1]],st:["כוס גבוהה מלאה קרח.","45 מ״ל קמפרי.","טוניק, פרוסת תפוז."],why:"מריר כפול: קמפרי וטוניק."},
+ {he:"גריבלדי",en:"Garibaldi",s:1.5,w:2.5,b:3,t:["fruity"],i:[["campari",45],["orange",120,"מיץ סחוט (כ־2 תפוזים)"]],st:["סוחטים 2 תפוזים. טריק: מקציפים את המיץ בשייקר בלי קרח.","כוס גבוהה עם קרח, 45 מ״ל קמפרי.","מוזגים את מיץ התפוזים מלמעלה."],why:"מריר־פירותי. תפוז טרי עושה את ההבדל."},
+ {he:"קמפרי אשכולית ורודה",en:"Campari Pink Grapefruit",s:2.5,w:2,b:3,t:["citrus"],i:[["campari",30],["pinkgf",30],["soda",120]],st:["כוס גבוהה מלאה קרח.","30 מ״ל קמפרי ו־30 מ״ל בסיס אשכולית ורודה.","סודה, ערבוב."],why:"מריר וחמצמץ. כמו פלומה איטלקית."},
+ {he:"ספריץ לימונצ׳לו־קמפרי",en:"Limoncello Campari Spritz",s:2,w:2.5,b:2.5,t:[],i:[["limoncello",30],["campari",20],["soda",100]],st:["כוס יין גדולה עם קרח.","30 מ״ל לימונצ׳לו ו־20 מ״ל קמפרי.","סודה, ערבוב קל."],why:"מתוק־מריר, בסגנון ספריץ."},
+ {he:"אומה ביטר",en:"Ume Bitter Soda",s:1.5,w:2.5,b:2.5,t:["fruity"],i:[["choya",30],["campari",20],["soda",100]],st:["כוס עם קרח.","30 מ״ל צ׳ויה ו־20 מ״ל קמפרי.","סודה, ערבוב."],why:"האומשו מרכך את הקמפרי. מריר־פירותי."},
+ {he:"ג׳נפי טוניק",en:"Génépi Tonic",s:0.5,w:1.5,b:2.5,t:[],i:[["genepi",40],["tonic",120],["lemon",0,"קליפה",1]],st:["כוס גבוהה מלאה קרח.","40 מ״ל ג׳נפי.","טוניק, קליפת לימון."],why:"צמחי ומריר, כמו ג׳ין טוניק אלפיני."},
+ {he:"אומשו על קרח",en:"Umeshu on the Rocks",s:1.5,w:3.5,b:0,t:["fruity"],i:[["choya",60]],st:["כוס נמוכה עם קוביית קרח גדולה.","60 מ״ל צ׳ויה.","ערבוב קצר."],why:"הדרך היפנית הנפוצה לשתות אומשו."},
+ {he:"אומשו סודה",en:"Umeshu Soda",s:1.5,w:2.5,b:0,t:["fruity"],i:[["choya",60],["soda",120]],st:["כוס גבוהה מלאה קרח.","60 מ״ל צ׳ויה.","סודה, ערבוב."],why:"מתוק־חמצמץ וקליל."},
+ {he:"אומה טוניק",en:"Umeshu Tonic",s:1,w:2.5,b:1.5,t:["fruity"],i:[["choya",45],["tonic",120],["lime",0,"פלח",1]],st:["כוס גבוהה מלאה קרח.","45 מ״ל צ׳ויה.","טוניק, פלח ליים."],why:"הטוניק מוסיף מרירות למתיקות של האומה."},
+ {he:"אומה בורבון",en:"Ume Bourbon",s:1,w:2.5,b:0.5,t:["fruity"],i:[["choya",30],["bourbon",30]],st:["כוס נמוכה עם קרח גדול.","30 מ״ל צ׳ויה ו־30 מ״ל בורבון.","ערבוב ארוך לקירור."],why:"עשיר וחזק. האומשו מוסיף פרי לבורבון."},
+ {he:"סקרודרייבר",en:"Screwdriver",s:1.5,w:2.5,b:0,t:["fruity"],i:[["vodka",45],["orange",120,"מיץ סחוט (כ־2 תפוזים)"]],st:["כוס גבוהה מלאה קרח.","45 מ״ל וודקה.","מיץ תפוזים סחוט, ערבוב."],why:"פשוט ופירותי. עם תפוז טרי הוא אחר לגמרי."},
+ {he:"אמרטו תפוז",en:"Amaretto & Orange",s:1.5,w:3.5,b:0,t:["fruity"],i:[["amaretto",40],["orange",120,"מיץ סחוט (כ־2 תפוזים)"]],st:["כוס גבוהה מלאה קרח.","40 מ״ל דיסרונו.","מיץ תפוזים סחוט."],why:"שקדים ותפוז. מתוק ופירותי."},
+ {he:"קוקו אננס",en:"Coco Pineapple",s:1,w:4,b:0,t:["fruity"],i:[["coco",45],["pineapple",120],["lime",10,"10 מ״ל מיץ",1]],st:["כוס גבוהה מלאה קרח.","45 מ״ל קוקו ד׳אמור.","מיץ אננס ומעט ליים."],why:"כמו פינה קולדה קלה בלי בלנדר."},
+ {he:"קוקו על קרח",en:"Coco D'Amour on Ice",s:0,w:4,b:0,t:[],i:[["coco",50],["lime",0,"פלח",1]],st:["כוס נמוכה עם קרח.","50 מ״ל קוקו ד׳אמור.","פלח ליים לאיזון."],why:"מתוק וטרופי, לקינוח."},
+ {he:"קוקו לאטה קר",en:"Iced Coco Latte",s:0,w:3,b:1.5,t:[],i:[["coco",40],["espresso",30],["milk",120]],st:["כוס עם קרח.","40 מ״ל קוקו ד׳אמור ו־30 מ״ל אספרסו.","חלב קר, ערבוב."],why:"קפה קר עם קוקוס."},
+ {he:"אמרטו לאטה קר",en:"Iced Amaretto Latte",s:0,w:3,b:1.5,t:[],i:[["amaretto",30],["espresso",30],["milk",120]],st:["כוס עם קרח.","30 מ״ל דיסרונו ו־30 מ״ל אספרסו.","חלב קר, ערבוב."],why:"קפה עם טעם מרציפן."},
+ {he:"אמרטו קולה",en:"Amaretto Cola",s:0.5,w:4,b:0,t:[],i:[["amaretto",40],["cola",120],["lime",0,"פלח",1]],st:["כוס גבוהה מלאה קרח.","40 מ״ל דיסרונו.","קולה, פלח ליים."],why:"מתוק. טעם של דובדבן־שקדים."},
+ {he:"אמרטו על קרח",en:"Disaronno on the Rocks",s:0,w:4.5,b:0.5,t:[],i:[["amaretto",50]],st:["כוס נמוכה עם קרח.","50 מ״ל דיסרונו."],why:"הדרך הפשוטה ביותר. מתוק מאוד."},
+ {he:"לימונצ׳לו טוניק",en:"Limoncello Tonic",s:2,w:3,b:1.5,t:[],i:[["limoncello",45],["tonic",120],["mint",0,"ענף",1]],st:["כוס גבוהה מלאה קרח.","45 מ״ל לימונצ׳לו.","טוניק, ענף נענע."],why:"הטוניק מאזן את המתיקות."},
+ {he:"לימונצ׳לו נענע סודה",en:"Limoncello Mint Soda",s:1.5,w:3,b:0,t:[],i:[["limoncello",45],["mint",0,"5 עלים"],["soda",120]],st:["מועכים קלות נענע בכוס.","קרח ו־45 מ״ל לימונצ׳לו.","סודה, ערבוב."],why:"לימונדה למבוגרים. מתוק, לא חמוץ."},
+ {he:"לימונצ׳לו קר",en:"Limoncello, Frozen",s:1,w:4.5,b:0,t:[],i:[["limoncello",45]],st:["שומרים את הבקבוק במקפיא.","מוזגים 45 מ״ל לכוסית קרה."],why:"כמו באיטליה, אחרי הארוחה."},
+ {he:"גודפאדר",en:"Godfather (Bourbon)",s:0,w:2.5,b:1,t:[],i:[["bourbon",45],["amaretto",20]],st:["כוס נמוכה עם קרח גדול.","45 מ״ל בורבון ו־20 מ״ל דיסרונו.","ערבוב 20 שניות."],why:"חזק ושקדי. במקור עם סקוץ׳."},
+ {he:"פרנץ׳ קונקשן",en:"French Connection",s:0,w:2.5,b:0.5,t:[],i:[["cognac",40],["amaretto",25]],st:["כוס נמוכה עם קרח.","40 מ״ל קוניאק ו־25 מ״ל דיסרונו.","ערבוב."],why:"חם ועגול. משקה לסוף ערב."},
+ {he:"הורסס נק",en:"Horse's Neck",s:0.5,w:2.5,b:0.5,t:[],i:[["cognac",45],["ginger",120],["lemon",0,"קליפה ארוכה",1]],st:["קליפת לימון ארוכה בספירלה בתוך כוס גבוהה.","קרח ו־45 מ״ל קוניאק.","ג׳ינג׳ר אייל."],why:"קוניאק עם ג׳ינג׳ר. קליל יותר ממה שנשמע."},
+ {he:"בורבון ג׳ינג׳ר",en:"Bourbon & Ginger",s:0.5,w:2.5,b:0.5,t:[],i:[["bourbon",45],["ginger",120],["lime",0,"פלח",1]],st:["כוס גבוהה מלאה קרח.","45 מ״ל בורבון.","ג׳ינג׳ר אייל, פלח ליים."],why:"קל לשתייה. הג׳ינג׳ר מבליט את התבלינים."},
+ {he:"בורבון קולה",en:"Bourbon & Cola",s:0,w:3.5,b:0,t:[],i:[["bourbon",45],["cola",120]],st:["כוס גבוהה מלאה קרח.","45 מ״ל בורבון.","קולה."],why:"הקלאסיקה הפשוטה."},
+ {he:"הייבול בורבון",en:"Bourbon Highball",s:0,w:0.5,b:1,t:["dry"],i:[["bourbon",45],["soda",135],["lemon",0,"קליפה",1]],st:["כוס גבוהה מלאה קרח.","45 מ״ל בורבון, ערבוב.","סודה לאט, קליפת לימון."],why:"יבש ונקי. הבורבון בחזית."},
+ {he:"וודקה טוניק",en:"Vodka Tonic",s:0.5,w:1.5,b:2,t:[],i:[["vodka",45],["tonic",135],["lime",0,"פלח",1]],st:["כוס גבוהה מלאה קרח.","45 מ״ל וודקה.","טוניק, פלח ליים."],why:"מריר־עדין ורענן."},
+];
+
+const FILTERS = [
+ {id:"all",he:"הכול"},
+ {id:"citrus",he:"הדרי",test:c=>c.t.includes("citrus"),sort:c=>c.s,note:"לימון, ליים או אשכולית חמוצים. לימונצ׳לו לבד לא נכלל: הוא מתוק."},
+ {id:"sour",he:"חמוץ",test:c=>c.s>=2.5,sort:c=>c.s,note:"חמיצות 2.5 ומעלה, מהחמוץ ביותר."},
+ {id:"sweet",he:"מתוק",test:c=>c.w>=3,sort:c=>c.w,note:"מתיקות 3 ומעלה, מהמתוק ביותר."},
+ {id:"fruity",he:"פירותי",test:c=>c.t.includes("fruity"),sort:c=>c.w,note:"אומה, תפוז, אננס ואשכולית ורודה."},
+ {id:"bitter",he:"מריר",test:c=>c.b>=2,sort:c=>c.b,note:"מרירות 2 ומעלה: קמפרי, טוניק או ג׳נפי."},
+ {id:"dry",he:"יבש",test:c=>c.w<=1.5,sort:c=>-c.w,note:"יבש = מעט סוכר. זה לא אותו דבר כמו מריר."},
+];
+const TAGHE={citrus:"הדרי־חמוץ",fruity:"פירותי",dry:"יבש"};
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const nameOf=k=>(B[k]||M[k]).he;
+function icon(k){
+  const m=M[k],c=m.col;
+  const svg={
+    citrus:`<svg viewBox="0 0 40 64"><circle cx="20" cy="34" r="15" fill="${c}"/><circle cx="20" cy="34" r="10" fill="none" stroke="#fff" stroke-width="1.5" opacity=".8"/><path d="M20 24v20M10 34h20M13 27l14 14M27 27L13 41" stroke="#fff" stroke-width="1.2" opacity=".7"/></svg>`,
+    leaf:`<svg viewBox="0 0 40 64"><path d="M20 54V22" stroke="${c}" stroke-width="2.5"/><path d="M20 34c-12-2-14-12-12-18 8 0 14 6 12 18zM20 30c10-2 13-10 11-16-8 0-12 6-11 16zM20 46c-10-1-12-9-10-14 7 0 11 5 10 14z" fill="${c}"/></svg>`,
+    can:`<svg viewBox="0 0 40 64"><rect x="10" y="10" width="20" height="46" rx="5" fill="${c}"/><rect x="12" y="6" width="16" height="6" rx="2" fill="#9AA3B8"/><circle cx="17" cy="32" r="1.6" fill="#fff"/><circle cx="23" cy="26" r="1.2" fill="#fff"/><circle cx="21" cy="40" r="2" fill="#fff"/></svg>`,
+    carton:`<svg viewBox="0 0 40 64"><path d="M10 18l10-10 10 10v38H10z" fill="${c}" stroke="#9AA3B8" stroke-width="1.5"/><rect x="13" y="28" width="14" height="14" fill="#fff" opacity=".6"/></svg>`,
+    jar:`<svg viewBox="0 0 40 64"><rect x="9" y="18" width="22" height="36" rx="4" fill="${c}" stroke="#9AA3B8" stroke-width="1.5"/><rect x="11" y="12" width="18" height="7" rx="2" fill="#9AA3B8"/></svg>`,
+    cup:`<svg viewBox="0 0 40 64"><path d="M8 26h22l-2 20a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4z" fill="${c}"/><path d="M30 30h3a4 4 0 0 1 0 8h-4" fill="none" stroke="${c}" stroke-width="2.5"/><path d="M15 22c0-3 3-3 3-6M21 22c0-3 3-3 3-6" stroke="#9AA3B8" stroke-width="1.5" fill="none"/></svg>`,
+  };
+  return svg[m.icon];
+}
+function bottleImg(k){
+  if(M[k]) return icon(k);
+  const b=B[k], crop=`img/${k}.jpg`;
+  return b.img
+    ? `<img loading="lazy" referrerpolicy="no-referrer" src="${esc(b.img)}" alt="${esc(b.he)}" data-fallback="${crop}">`
+    : `<img loading="lazy" class="crop" src="${crop}" alt="${esc(b.he)}">`;
+}
+document.addEventListener("error",e=>{const t=e.target;if(t.tagName==="IMG"&&t.dataset.fallback&&!t.dataset.failed){t.dataset.failed=1;t.src=t.dataset.fallback;t.classList.add("crop");const y=t.closest(".bottle")?.querySelector(".yours");if(y)y.hidden=true;}},true);
+const abvOf=c=>{let tot=0,al=0;c.i.forEach(([k,ml])=>{tot+=ml;al+=ml*((B[k]&&B[k].abv)||0)});return tot?al/tot:0};
+function meter(lbl,v,col){let cells="";for(let i=0;i<5;i++){const f=Math.max(0,Math.min(1,v-i));cells+=`<i><span style="width:${f*100}%"></span></i>`}
+  return `<div class="meter"><span class="lbl">${lbl}</span><div class="bar" style="--c:var(${col})" role="img" aria-label="${lbl} ${v} מתוך 5">${cells}</div><span class="n">${v}</span></div>`}
+
+/* ---------- state ---------- */
+C.forEach((c,i)=>c.id=i);
+let have=new Set(store.get("home-have",DEFAULT_HAVE).filter(k=>B[k]||M[k]));
+let sel=new Set(store.get("home-filters",[]).filter(id=>FILTERS.some(f=>f.id===id&&f.test)));
+let isel=new Set(store.get("home-ings",[]).filter(k=>B[k]||M[k]));
+let vod=[0,15,30].includes(store.get("home-vodka",0))?store.get("home-vodka",0):0;
+let cv=store.get("home-vodka-each",{});
+let nowOnly=store.get("home-nowonly",true);
+const save=()=>{store.set("home-have",[...have]);store.set("home-filters",[...sel]);store.set("home-ings",[...isel]);store.set("home-vodka",vod);store.set("home-vodka-each",cv);store.set("home-nowonly",nowOnly)};
+
+/* vodka boost: only long drinks without another strong spirit */
+const STRONG=["vodka","bourbon","cognac","genepi"];
+const LONG=["soda","tonic","ginger","sprite","cola","pineapple","milk"];
+const canVod=c=>c.i.every(([k])=>!STRONG.includes(k))&&c.i.some(([k,ml])=>LONG.includes(k)&&ml>=90);
+const vodOf=c=>(canVod(c)&&have.has("vodka"))?(c.id in cv?cv[c.id]:vod):0;
+function withVod(c){const v=vodOf(c);if(!v)return c;const i=c.i.slice(),st=c.st.slice();
+  const si=i.findIndex(x=>LONG.includes(x[0]));i.splice(si<0?i.length:si,0,["vodka",v]);
+  st.splice(Math.max(st.length-1,1),0,`${v} מ״ל וודקה.`);return {...c,i,st,boosted:v}}
+const missingOf=c=>[...new Set(withVod(c).i.filter(x=>!x[3]&&!have.has(x[0])).map(x=>x[0]))];
+const uses=(c,k)=>withVod(c).i.some(x=>x[0]===k);
+
+/* ---------- cocktails ---------- */
+function card(c0){
+  const c=withVod(c0),v=vodOf(c0),miss=missingOf(c0);
+  const a=abvOf(c),total=c.i.reduce((s,x)=>s+x[1],0);
+  const ings=c.i.map(([k,ml,lbl,opt])=>{const b=B[k],m=M[k];
+    const cls=[isel.has(k)?"hit":"",opt?"opt":(!have.has(k)?"out":"")].join(" ");
+    const sub=b?`${b.jp?`<span class="jp">${esc(b.orig)}</span>`:esc(b.orig)} · ${esc(b.type)}`:(m.note?esc(m.note):"");
+    const amt=lbl&&!ml?`<div class="ml">${esc(lbl)}</div>`:`<div class="ml">${ml} מ״ל${lbl?`<small>${esc(lbl.replace(/^\d+ מ״ל ?/,""))}</small>`:""}</div>`;
+    return `<li class="ing ${cls}"><div class="thumb">${bottleImg(k)}</div>
+      <div class="nm">${esc(nameOf(k))}${sub?`<small>${sub}</small>`:""}${b&&b.info?`<a href="${esc(b.info)}" target="_blank" rel="noopener">פרטים ↗</a>`:""}</div>${amt}</li>`}).join("");
+  const ctl=canVod(c0)&&have.has("vodka")
+    ?`<div class="cvod" role="group" aria-label="חיזוק בוודקה למשקה הזה"><span class="vlbl">חיזוק בוודקה</span>${[0,15,30].map(x=>`<button class="seg cseg" data-id="${c0.id}" data-v="${x}" aria-pressed="${x===v}">${x?`+${x} מ״ל`:"בלי"}</button>`).join("")}</div>`
+    :(canVod(c0)?"":`<div class="cvod no">לא מתאים לחיזוק בוודקה</div>`);
+  const tags=[...c.t.map(t=>`<span class="tag">${TAGHE[t]}</span>`),...miss.map(k=>`<span class="tag miss">חסר: ${esc(nameOf(k))}</span>`)].join("");
+  return `<article class="card${miss.length?" missing":""}">
+    <div class="head"><div><h2>${esc(c.he)}</h2><div class="sub">${esc(c.en)}</div></div>
+      <div class="abv${c.boosted?" boosted":""}"><b>~${a.toFixed(0)}%</b>${c.boosted?"מחוזק":"אלכוהול"}<br>${total} מ״ל</div></div>
+    <div class="meters">${meter("חמיצות",c.s,"--sour")}${meter("מתיקות",c.w,"--sweet")}${meter("מרירות",c.b,"--bitter")}</div>
+    ${tags?`<div class="tags">${tags}</div>`:""}
+    ${ctl}
+    <p class="why">${esc(c.why)}</p>
+    <ul class="ings">${ings}</ul>
+    <ol class="steps">${c.st.map(s=>`<li>${esc(s)}</li>`).join("")}</ol>
+  </article>`;
+}
+function renderChips(){
+  $("#chips").innerHTML=FILTERS.map(f=>{const on=f.id==="all"?sel.size===0:sel.has(f.id);
+    return `<button class="chip" data-f="${f.id}" aria-pressed="${on}">${f.id!=="all"?'<span class="dot"></span>':''}${f.he}</button>`}).join("");
+}
+function renderPantry(){
+  const ks=Object.keys(M);
+  $("#panchips").innerHTML=ks.map(k=>`<button class="chip have" data-k="${k}" aria-pressed="${have.has(k)}">${esc(M[k].he)}</button>`).join("");
+  const n=ks.filter(k=>have.has(k)).length;$("#pansum").textContent=`· ${n} מתוך ${ks.length}`;
+}
+function renderIng(){
+  const ks=[...Object.keys(B),...Object.keys(M)];
+  $("#ingchips").innerHTML=ks.map(k=>{const n=C.filter(c=>uses(c,k)).length;if(!n)return"";
+    return `<button class="chip" data-k="${k}" aria-pressed="${isel.has(k)}">${esc(nameOf(k))} <span class="cnt">${n}</span></button>`}).join("")
+    +(isel.size?`<button class="chip" data-k="__clear">ניקוי</button>`:"");
+  $("#ingsum").textContent=isel.size?"· "+[...isel].map(nameOf).join(" + "):"";
+}
+function renderVod(){
+  if(!have.has("vodka")){$("#vod").innerHTML=`<span class="vlbl" style="color:var(--muted)">חיזוק בוודקה לא זמין: הוודקה מסומנת כנגמרה</span>`;return}
+  $("#vod").innerHTML=`<span class="vlbl">חיזוק לכל המשקאות</span>`+[0,15,30].map(v=>`<button class="seg" data-v="${v}" aria-pressed="${v===vod&&!Object.keys(cv).length}">${v?`+${v} מ״ל`:"בלי"}</button>`).join("");
+}
+function renderList(){
+  const fs=FILTERS.filter(f=>sel.has(f.id));
+  let arr=C.filter(c=>[...isel].every(k=>uses(c,k)));
+  if(fs.length) arr=arr.filter(c=>fs.every(f=>f.test(c))).sort((a,b)=>fs.reduce((t,f)=>t+f.sort(b)-f.sort(a),0));
+  const hidden=arr.filter(c=>missingOf(c).length);
+  if(nowOnly) arr=arr.filter(c=>!missingOf(c).length);
+  else arr.sort((a,b)=>missingOf(a).length-missingOf(b).length);
+  $("#fnote").textContent=fs.length>1?"מוצגים משקאות שמתאימים לכל הטעמים שבחרתם.":(fs[0]?fs[0].note:"אפשר לבחור כמה טעמים יחד, למשל חמוץ ופירותי.");
+  let html=`<span>${arr.length} משקאות</span>`;
+  if(nowOnly&&hidden.length){
+    const cnt={};hidden.forEach(c=>{const m=missingOf(c);if(m.length===1)cnt[m[0]]=(cnt[m[0]]||0)+1});
+    const top=Object.entries(cnt).sort((a,b)=>b[1]-a[1]).slice(0,4);
+    html+=`<span>· עוד ${hidden.length} צריכים משהו שאין.</span>`+top.map(([k,n])=>`<button class="addbtn" data-k="${k}">יש ${esc(nameOf(k))}? +${n}</button>`).join("");
+  }
+  $("#count").innerHTML=html;
+  $("#list").innerHTML=arr.length?arr.map(card).join(""):`<p class="note">אין משקה שמתאים לכל מה שבחרתם. נסו להוריד טעם או מרכיב, או לסמן מה יש בבית.</p>`;
+}
+const all=()=>{save();renderPantry();renderIng();renderVod();renderList();renderInv()};
+
+$("#chips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;const id=b.dataset.f;
+  if(id==="all")sel.clear();else sel.has(id)?sel.delete(id):sel.add(id);save();renderChips();renderList()});
+$("#panchips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;const k=b.dataset.k;have.has(k)?have.delete(k):have.add(k);all()});
+$("#ingchips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;const k=b.dataset.k;
+  if(k==="__clear")isel.clear();else isel.has(k)?isel.delete(k):isel.add(k);save();renderIng();renderList()});
+$("#nowonly").checked=nowOnly;
+$("#nowonly").addEventListener("change",e=>{nowOnly=e.target.checked;save();renderList()});
+$("#count").addEventListener("click",e=>{const b=e.target.closest(".addbtn");if(!b)return;have.add(b.dataset.k);all()});
+$("#vod").addEventListener("click",e=>{const b=e.target.closest(".seg");if(!b)return;vod=+b.dataset.v;cv={};save();renderVod();renderIng();renderList()});
+$("#list").addEventListener("click",e=>{const b=e.target.closest(".cseg");if(!b)return;
+  const top=b.closest(".card").getBoundingClientRect().top;cv[b.dataset.id]=+b.dataset.v;save();renderVod();renderIng();renderList();
+  const again=document.querySelector(`.cseg[data-id="${b.dataset.id}"]`);if(again){const d=again.closest(".card").getBoundingClientRect().top-top;if(d)window.scrollBy(0,d)}});
+
+/* ---------- inventory ---------- */
+function bottleCard(k){
+  const b=B[k],on=have.has(k);
+  return `<article class="bottle${on?"":" gone"}">
+    <div class="pic"><div class="main">${bottleImg(k)}</div>
+      ${b.img?`<div class="yours"><img src="img/${k}.jpg" alt="">מהצילום שלכם</div>`:""}</div>
+    <div class="body">
+      <h4>${esc(b.he)}</h4>
+      <div class="orig${b.jp?" jp":""}">${esc(b.orig)}</div>
+      <div class="facts"><span class="fact">${esc(b.type)}</span><span class="fact">${b.abv}%</span>${b.vol?`<span class="fact">${esc(b.vol)}</span>`:""}<span class="fact">${C.filter(c=>uses(c,k)).length} מתכונים</span></div>
+      <p>${esc(b.desc)}</p>
+      <p><b>טעם:</b> ${esc(b.taste)}</p>
+      ${b.imgNote?`<span class="imgnote">${esc(b.imgNote)}</span>`:""}
+      ${b.info||b.img?`<div class="links">${b.info?`<a href="${esc(b.info)}" target="_blank" rel="noopener">עמוד המוצר ↗</a>`:""}${b.img?`<a href="${esc(b.img)}" target="_blank" rel="noopener">תמונת הבקבוק ↗</a>`:""}</div>`:""}
+      <button class="seg stock" data-k="${k}" aria-pressed="${!on}">${on?"יש בבית · לסמן נגמר":"נגמר · לסמן שיש"}</button>
+    </div></article>`;
+}
+function mixCard(k){
+  const m=M[k],on=have.has(k);
+  return `<article class="bottle${on?"":" gone"}" style="grid-template-columns:56px 1fr">
+    <div class="thumb">${icon(k)}</div>
+    <div class="body"><h4>${esc(m.he)}</h4>${m.note?`<p>${esc(m.note)}</p>`:""}
+      <div class="facts"><span class="fact">${C.filter(c=>uses(c,k)).length} מתכונים</span></div>
+      <button class="seg stock" data-k="${k}" aria-pressed="${on}">${on?"יש":"אין"}</button></div></article>`;
+}
+function renderInv(){
+  $("#inv").innerHTML=Object.keys(B).map(bottleCard).join("");
+  $("#mix").innerHTML=Object.keys(M).map(mixCard).join("");
+}
+$("#view-i").addEventListener("click",e=>{const b=e.target.closest(".stock");if(!b)return;const k=b.dataset.k;have.has(k)?have.delete(k):have.add(k);all()});
+
+/* ---------- tabs ---------- */
+function show(t){const c=t==="c";$("#view-c").hidden=!c;$("#view-i").hidden=c;
+  $("#tab-c").setAttribute("aria-selected",c);$("#tab-i").setAttribute("aria-selected",!c);window.scrollTo(0,0)}
+$("#tab-c").onclick=()=>show("c");$("#tab-i").onclick=()=>show("i");
+
+renderChips();all();
+</script>
+</body>
+</html>
