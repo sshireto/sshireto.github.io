@@ -82,7 +82,28 @@ main .wrap{padding-block:16px 48px}
 
 .list{display:grid;gap:14px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:12px;min-width:0}
+.card{scroll-margin-top:120px}
 .card.missing{border-style:dashed}
+.cno{display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 6px;border-radius:999px;background:var(--ai);color:var(--surface);font-family:var(--font-body);font-size:.85rem;font-weight:700;vertical-align:middle;margin-inline-end:8px;font-variant-numeric:tabular-nums}
+#mapwrap{position:relative;margin-top:4px}
+.map{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px;overflow:hidden}
+.map svg{display:block;width:100%;height:auto;touch-action:manipulation;direction:ltr}
+.map .ax{stroke:var(--line);stroke-width:1.5}
+.map .axl{fill:var(--muted);font:700 12px var(--font-body);letter-spacing:.06em}
+.map .dot{cursor:pointer}
+.map .dot circle{stroke:var(--surface);stroke-width:2}
+.map .dot text{fill:var(--surface);font:700 11px var(--font-body);pointer-events:none}
+.map .dot.miss circle{fill:var(--surface)!important;stroke:var(--muted);stroke-dasharray:3 2}
+.map .dot.miss text{fill:var(--muted)}
+.map .dot.sel circle{stroke:var(--ink);stroke-width:3}
+.pop{margin-top:8px;background:var(--surface);border:1.5px solid var(--ink);border-radius:12px;padding:10px 12px;display:grid;gap:4px}
+.pop b{font-size:1.05rem}
+.pop .pm{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.pop .pb{display:flex;gap:8px;margin-top:4px}
+.maplegend{font-size:.8rem;color:var(--muted);margin:8px 0 0;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
+.lg{display:inline-flex;align-items:center;gap:5px}
+.lg i{width:11px;height:11px;border-radius:50%;display:inline-block}
+.lg i.hollow{border:1.5px dashed var(--muted)}
 .card h2{font-family:var(--font-display);font-size:1.9rem;font-weight:700;line-height:1;margin:0;text-wrap:balance}
 .card .sub{font-size:.85rem;color:var(--muted);margin-top:4px}
 .head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
@@ -166,7 +187,13 @@ h3.sec{font-family:var(--font-display);font-size:1.7rem;margin:22px 0 10px}
     <div class="row"><label class="switch"><input type="checkbox" id="nowonly" checked> רק מה שאפשר להכין עכשיו</label></div>
     <div class="row" id="vod" role="group" aria-label="חיזוק בוודקה"></div>
     <p class="filter-note" id="fnote"></p>
+    <div class="row" id="viewsw" role="group" aria-label="תצוגה"><span class="vlbl">תצוגה</span><button class="seg vs" data-v="list">רשימה</button><button class="seg vs" data-v="map">מפת טעם</button></div>
     <div class="count" id="count"></div>
+    <div id="mapwrap" hidden>
+      <div class="map" id="map"></div>
+      <div class="pop" id="pop" hidden></div>
+      <p class="maplegend"><span class="lg"><i style="background:var(--ai)"></i>לא מריר</span><span class="lg"><i style="background:var(--bitter)"></i>מריר</span><span class="lg"><i class="hollow"></i>חסר מרכיב</span> · גובה = כמה חזק, צד = חמוץ או מתוק. לחצו על נקודה.</p>
+    </div>
     <div class="list" id="list"></div>
   </section>
 
@@ -334,7 +361,7 @@ let isel=new Set(store.get("home-ings",[]).filter(k=>B[k]||M[k]));
 let vod=[0,15,30].includes(store.get("home-vodka",0))?store.get("home-vodka",0):0;
 let cv=store.get("home-vodka-each",{});
 let nowOnly=store.get("home-nowonly",true);
-const save=()=>{store.set("home-have",[...have]);store.set("home-filters",[...sel]);store.set("home-ings",[...isel]);store.set("home-vodka",vod);store.set("home-vodka-each",cv);store.set("home-nowonly",nowOnly)};
+const save=()=>{store.set("home-have",[...have]);store.set("home-filters",[...sel]);store.set("home-ings",[...isel]);store.set("home-vodka",vod);store.set("home-vodka-each",cv);store.set("home-nowonly",nowOnly);try{store.set("home-view",view)}catch(e){}};
 
 /* vodka boost: only long drinks without another strong spirit */
 const STRONG=["vodka","bourbon","cognac","genepi"];
@@ -348,7 +375,7 @@ const missingOf=c=>[...new Set(withVod(c).i.filter(x=>!x[3]&&!have.has(x[0])).ma
 const uses=(c,k)=>withVod(c).i.some(x=>x[0]===k);
 
 /* ---------- cocktails ---------- */
-function card(c0){
+function card(c0,n){
   const c=withVod(c0),v=vodOf(c0),miss=missingOf(c0);
   const a=abvOf(c),total=c.i.reduce((s,x)=>s+x[1],0);
   const ings=c.i.map(([k,ml,lbl,opt])=>{const b=B[k],m=M[k];
@@ -361,8 +388,8 @@ function card(c0){
     ?`<div class="cvod" role="group" aria-label="חיזוק בוודקה למשקה הזה"><span class="vlbl">חיזוק בוודקה</span>${[0,15,30].map(x=>`<button class="seg cseg" data-id="${c0.id}" data-v="${x}" aria-pressed="${x===v}">${x?`+${x} מ״ל`:"בלי"}</button>`).join("")}</div>`
     :(canVod(c0)?"":`<div class="cvod no">לא מתאים לחיזוק בוודקה</div>`);
   const tags=[...c.t.map(t=>`<span class="tag">${TAGHE[t]}</span>`),...miss.map(k=>`<span class="tag miss">חסר: ${esc(nameOf(k))}</span>`)].join("");
-  return `<article class="card${miss.length?" missing":""}">
-    <div class="head"><div><h2>${esc(c.he)}</h2><div class="sub">${esc(c.en)}</div></div>
+  return `<article class="card${miss.length?" missing":""}" id="c-${c0.id}">
+    <div class="head"><div><h2>${n?`<span class="cno">${n}</span>`:""}${esc(c.he)}</h2><div class="sub">${esc(c.en)}</div></div>
       <div class="abv${c.boosted?" boosted":""}"><b>~${a.toFixed(0)}%</b>${c.boosted?"מחוזק":"אלכוהול"}<br>${total} מ״ל</div></div>
     <div class="meters">${meter("חמיצות",c.s,"--sour")}${meter("מתיקות",c.w,"--sweet")}${meter("מרירות",c.b,"--bitter")}</div>
     ${tags?`<div class="tags">${tags}</div>`:""}
@@ -416,7 +443,11 @@ function renderList(){
     html+=`<span>· עוד ${hidden.length} צריכים משהו שאין.</span>`+top.map(([k,n])=>`<button class="addbtn" data-k="${k}">יש ${esc(nameOf(k))}? +${n}</button>`).join("");
   }
   $("#count").innerHTML=html;
-  $("#list").innerHTML=arr.length?arr.map(card).join(""):`<p class="note">אין משקה שמתאים לכל מה שבחרתם. נסו להוריד טעם או מרכיב, או לסמן מה יש בבית.</p>`;
+  shown=arr;
+  $("#list").innerHTML=arr.length?arr.map((c,i)=>card(c,i+1)).join(""):`<p class="note">אין משקה שמתאים לכל מה שבחרתם. נסו להוריד טעם או מרכיב, או לסמן מה יש בבית.</p>`;
+  $("#list").hidden=view==="map"&&arr.length>0; $("#mapwrap").hidden=view!=="map"||!arr.length;
+  document.querySelectorAll(".vs").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===view));
+  if(view==="map") renderMap();
 }
 const all=()=>{save();renderPantry();renderIng();renderVod();renderList();renderInv()};
 
@@ -432,6 +463,47 @@ $("#vod").addEventListener("click",e=>{const b=e.target.closest(".seg");if(!b)re
 $("#list").addEventListener("click",e=>{const b=e.target.closest(".cseg");if(!b)return;
   const top=b.closest(".card").getBoundingClientRect().top;cv[b.dataset.id]=+b.dataset.v;save();renderVod();renderIng();renderList();
   const again=document.querySelector(`.cseg[data-id="${b.dataset.id}"]`);if(again){const d=again.closest(".card").getBoundingClientRect().top-top;if(d)window.scrollBy(0,d)}});
+
+/* ---------- taste map ---------- */
+let shown=[], view=store.get("home-view","list"), selId=null;
+function renderMap(){
+  const W=400,H=440,P=28;
+  const pts=shown.map((c0,i)=>{const c=withVod(c0);const v=c.w-c.s;           // -5 sour … +5 sweet
+    const a=Math.min(30,Math.max(3,abvOf(c)));
+    return {c0,n:i+1,x:P+(Math.max(-4,Math.min(4,v))+4)/8*(W-2*P),y:P+(a-3)/27*(H-2*P),bx:0,by:0,miss:missingOf(c0).length>0,b:c.b,abv:abvOf(c)}});
+  pts.forEach(p=>{p.bx=p.x;p.by=p.y});
+  const R=12;for(let it=0;it<80;it++){for(let i=0;i<pts.length;i++)for(let j=i+1;j<pts.length;j++){
+    const a=pts[i],b=pts[j];let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||0.01;
+    if(d<2*R+1){const m=(2*R+1-d)/2;dx/=d;dy/=d;a.x-=dx*m;a.y-=dy*m;b.x+=dx*m;b.y+=dy*m}}
+    pts.forEach(p=>{p.x+=(p.bx-p.x)*.04;p.y+=(p.by-p.y)*.04;p.x=Math.min(W-R-2,Math.max(R+2,p.x));p.y=Math.min(H-R-2,Math.max(R+2,p.y))})}
+  const dots=pts.map(p=>`<g class="dot${p.miss?" miss":""}${p.c0.id===selId?" sel":""}" data-id="${p.c0.id}" data-n="${p.n}" tabindex="0" role="button" aria-label="${esc(p.c0.he)}">
+    <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${R}" fill="${p.b>=2?"var(--bitter)":"var(--ai)"}"/>
+    <text x="${p.x.toFixed(1)}" y="${(p.y+4).toFixed(1)}" text-anchor="middle">${p.n}</text></g>`).join("");
+  $("#map").innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="מפת טעם של ${pts.length} קוקטיילים">
+    <line class="ax" x1="${W/2}" y1="8" x2="${W/2}" y2="${H-8}"/><line class="ax" x1="8" y1="${H/2}" x2="${W-8}" y2="${H/2}"/>
+    <text class="axl" x="${W/2}" y="20" text-anchor="middle">קליל</text>
+    <text class="axl" x="${W/2}" y="${H-10}" text-anchor="middle">חזק</text>
+    <text class="axl" x="12" y="${H/2-8}" text-anchor="start">חמוץ ויבש</text>
+    <text class="axl" x="${W-12}" y="${H/2-8}" text-anchor="end">מתוק</text>
+    ${dots}</svg>`;
+  if(selId!=null&&!pts.some(p=>p.c0.id===selId)){selId=null;$("#pop").hidden=true}
+}
+function openPop(id){
+  const i=shown.findIndex(c=>c.id===id);if(i<0)return;const c0=shown[i],c=withVod(c0),miss=missingOf(c0);
+  selId=id;renderMap();
+  $("#pop").innerHTML=`<b><span class="cno">${i+1}</span>${esc(c.he)}</b>
+    <span class="pm">חמיצות ${c.s} · מתיקות ${c.w} · מרירות ${c.b} · אלכוהול כ־${abvOf(c).toFixed(0)}%</span>
+    ${miss.length?`<span class="pm" style="color:var(--warn-fg)">חסר: ${miss.map(nameOf).join(", ")}</span>`:""}
+    <div class="pb"><button class="seg" id="popgo" aria-pressed="true">למתכון</button><button class="seg" id="popx">סגירה</button></div>`;
+  $("#pop").hidden=false;
+}
+$("#map").addEventListener("click",e=>{const g=e.target.closest(".dot");if(g)openPop(+g.dataset.id)});
+$("#map").addEventListener("keydown",e=>{const g=e.target.closest(".dot");if(g&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openPop(+g.dataset.id)}});
+$("#pop").addEventListener("click",e=>{
+  if(e.target.id==="popx"){selId=null;$("#pop").hidden=true;renderMap()}
+  if(e.target.id==="popgo"){const id=selId;view="list";save();$("#pop").hidden=true;selId=null;renderList();
+    const el=document.getElementById("c-"+id);if(el)el.scrollIntoView({behavior:"smooth",block:"start"})}});
+$("#viewsw").addEventListener("click",e=>{const b=e.target.closest(".vs");if(!b)return;view=b.dataset.v;selId=null;$("#pop").hidden=true;save();renderList()});
 
 /* ---------- inventory ---------- */
 function bottleCard(k){
