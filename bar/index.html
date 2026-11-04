@@ -65,6 +65,9 @@ main .wrap{padding-block:16px 48px}
 .box summary{font-weight:700;cursor:pointer;font-size:.95rem}
 .box summary span{font-weight:600;color:var(--ai)}
 .box .chips{margin:10px 0 4px}
+.groups{display:grid;gap:10px;margin:10px 0 4px}
+.glbl{font-size:.8rem;font-weight:700;color:var(--muted);letter-spacing:.02em;margin-bottom:5px}
+.box .groups .chips{margin:0}
 .box .hint{font-size:.82rem;color:var(--muted);margin:6px 0 2px}
 .row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:12px}
 .vlbl{font-weight:700;font-size:.92rem;margin-inline-end:4px}
@@ -159,7 +162,7 @@ h3.sec{font-family:var(--font-display);font-size:1.7rem;margin:22px 0 10px}
       <p class="hint">סמנו מה יש עכשיו. הבחירה נשמרת בטלפון הזה.</p>
       <div class="chips small" id="panchips"></div></details>
     <details class="box" id="ingf"><summary>סינון לפי מרכיב <span id="ingsum"></span></summary>
-      <div class="chips small" id="ingchips"></div></details>
+      <div class="groups" id="ingchips"></div></details>
     <div class="row"><label class="switch"><input type="checkbox" id="nowonly" checked> רק מה שאפשר להכין עכשיו</label></div>
     <div class="row" id="vod" role="group" aria-label="חיזוק בוודקה"></div>
     <p class="filter-note" id="fnote"></p>
@@ -169,7 +172,7 @@ h3.sec{font-family:var(--font-display);font-size:1.7rem;margin:22px 0 10px}
 
   <section id="view-i" class="wrap" role="tabpanel" aria-labelledby="tab-i" hidden>
     <p class="filter-note" style="margin-top:0">בקבוק נגמר? לחצו „נגמר” והקוקטיילים שלו יוסתרו.</p>
-    <div class="list" id="inv"></div>
+    <div class="list" id="inv" style="gap:14px"></div>
     <h3 class="sec">מיקסרים ופירות</h3>
     <div class="list" id="mix"></div>
   </section>
@@ -366,11 +369,20 @@ function renderPantry(){
   $("#panchips").innerHTML=ks.map(k=>`<button class="chip have" data-k="${k}" aria-pressed="${have.has(k)}">${esc(M[k].he)}</button>`).join("");
   const n=ks.filter(k=>have.has(k)).length;$("#pansum").textContent=`· ${n} מתוך ${ks.length}`;
 }
+const GROUPS=[
+ ["אלכוהול חזק",["vodka","bourbon","cognac","genepi"]],
+ ["ליקרים וביטר",["limoncello","amaretto","choya","coco","campari"]],
+ ["בסיסי סאוור (לדילול)",["lemonsour","gf","pinkgf"]],
+ ["פירות ועשבים טריים",["lemon","lime","orange","mint"]],
+ ["מיקסרים",["soda","tonic","ginger","sprite","cola","pineapple"]],
+ ["מהמטבח",["sugar","milk","espresso"]],
+];
 function renderIng(){
-  const ks=[...Object.keys(B),...Object.keys(M)];
-  $("#ingchips").innerHTML=ks.map(k=>{const n=C.filter(c=>uses(c,k)).length;if(!n)return"";
-    return `<button class="chip" data-k="${k}" aria-pressed="${isel.has(k)}">${esc(nameOf(k))} <span class="cnt">${n}</span></button>`}).join("")
-    +(isel.size?`<button class="chip" data-k="__clear">ניקוי</button>`:"");
+  $("#ingchips").innerHTML=GROUPS.map(([g,ks])=>{
+    const chips=ks.map(k=>{const n=C.filter(c=>uses(c,k)).length;if(!n)return"";
+      return `<button class="chip" data-k="${k}" aria-pressed="${isel.has(k)}">${esc(nameOf(k))} <span class="cnt">${n}</span></button>`}).join("");
+    return chips?`<div><div class="glbl">${g}</div><div class="chips small">${chips}</div></div>`:""}).join("")
+    +(isel.size?`<div><button class="chip" data-k="__clear">ניקוי הבחירה</button></div>`:"");
   $("#ingsum").textContent=isel.size?"· "+[...isel].map(nameOf).join(" + "):"";
 }
 function renderVod(){
@@ -435,7 +447,7 @@ function mixCard(k){
       <button class="seg stock" data-k="${k}" aria-pressed="${on}">${on?"יש":"אין"}</button></div></article>`;
 }
 function renderInv(){
-  $("#inv").innerHTML=Object.keys(B).map(bottleCard).join("");
+  $("#inv").innerHTML=GROUPS.filter(([,ks])=>B[ks[0]]).map(([g,ks])=>`<h3 class="sec">${g}</h3>`+ks.map(bottleCard).join("")).join("");
   $("#mix").innerHTML=Object.keys(M).map(mixCard).join("");
 }
 $("#view-i").addEventListener("click",e=>{const b=e.target.closest(".stock");if(!b)return;const k=b.dataset.k;have.has(k)?have.delete(k):have.add(k);all()});
