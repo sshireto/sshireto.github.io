@@ -84,6 +84,16 @@ main .wrap{padding-block:16px 48px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:12px;min-width:0}
 .card{scroll-margin-top:120px}
 .card.missing{border-style:dashed}
+.tcnt{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:var(--ai);color:var(--surface);font-size:.75rem;vertical-align:1px}
+.tcnt:empty{display:none}
+.acts{display:flex;gap:8px;align-items:center}
+.heart{font:inherit;width:40px;height:36px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);cursor:pointer;display:grid;place-items:center;flex:none}
+.heart svg{width:20px;height:20px}
+.heart[aria-pressed="true"]{color:var(--sweet);border-color:var(--sweet)}
+.heart[aria-pressed="true"] path{fill:currentColor}
+.tn{font:inherit;font-weight:700;font-size:.9rem;height:36px;padding:0 14px;border:1.5px solid var(--ai);border-radius:10px;background:var(--surface);color:var(--ai);cursor:pointer}
+.tn[aria-pressed="true"]{background:var(--ai);color:var(--surface)}
+.tsumbox{display:grid;gap:6px;width:100%}
 .cno{display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 6px;border-radius:999px;background:var(--ai);color:var(--surface);font-family:var(--font-body);font-size:.85rem;font-weight:700;vertical-align:middle;margin-inline-end:8px;font-variant-numeric:tabular-nums}
 #mapwrap{position:relative;margin-top:4px}
 .map{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:6px;overflow:hidden}
@@ -171,6 +181,7 @@ h3.sec{font-family:var(--font-display);font-size:1.7rem;margin:22px 0 10px}
     </div>
     <div class="tabs" role="tablist">
       <button role="tab" id="tab-c" aria-selected="true" aria-controls="view-c">קוקטיילים</button>
+      <button role="tab" id="tab-t" aria-selected="false" aria-controls="view-t">מה מכינים <span class="tcnt" id="tcnt"></span></button>
       <button role="tab" id="tab-i" aria-selected="false" aria-controls="view-i">מה יש בבית</button>
     </div>
   </div>
@@ -195,6 +206,11 @@ h3.sec{font-family:var(--font-display);font-size:1.7rem;margin:22px 0 10px}
       <p class="maplegend"><span class="lg"><i style="background:var(--ai)"></i>לא מריר</span><span class="lg"><i style="background:var(--bitter)"></i>מריר</span><span class="lg"><i class="hollow"></i>חסר מרכיב</span> · גובה = כמה חזק, צד = חמוץ או מתוק. לחצו על נקודה.</p>
     </div>
     <div class="list" id="list"></div>
+  </section>
+
+  <section id="view-t" class="wrap" role="tabpanel" aria-labelledby="tab-t" hidden>
+    <div class="count" id="tsum"></div>
+    <div class="list" id="tlist"></div>
   </section>
 
   <section id="view-i" class="wrap" role="tabpanel" aria-labelledby="tab-i" hidden>
@@ -315,6 +331,7 @@ const C = [
 
 const FILTERS = [
  {id:"all",he:"הכול"},
+ {id:"fav",he:"♥ מועדפים",test:c=>fav.has(c.id),sort:()=>0,note:"המועדפים שלכם. לחצו על הלב בכרטיס כדי להוסיף."},
  {id:"citrus",he:"הדרי",test:c=>c.t.includes("citrus"),sort:c=>c.s,note:"לימון, ליים או אשכולית חמוצים. לימונצ׳לו לבד לא נכלל: הוא מתוק."},
  {id:"sour",he:"חמוץ",test:c=>c.s>=2.5,sort:c=>c.s,note:"חמיצות 2.5 ומעלה, מהחמוץ ביותר."},
  {id:"sweet",he:"מתוק",test:c=>c.w>=3,sort:c=>c.w,note:"מתיקות 3 ומעלה, מהמתוק ביותר."},
@@ -354,14 +371,17 @@ function meter(lbl,v,col){let cells="";for(let i=0;i<5;i++){const f=Math.max(0,M
   return `<div class="meter"><span class="lbl">${lbl}</span><div class="bar" style="--c:var(${col})" role="img" aria-label="${lbl} ${v} מתוך 5">${cells}</div><span class="n">${v}</span></div>`}
 
 /* ---------- state ---------- */
-C.forEach((c,i)=>c.id=i);
+C.forEach(c=>c.id=c.en.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,""));
+const byId=Object.fromEntries(C.map(c=>[c.id,c]));
 let have=new Set(store.get("home-have",DEFAULT_HAVE).filter(k=>B[k]||M[k]));
 let sel=new Set(store.get("home-filters",[]).filter(id=>FILTERS.some(f=>f.id===id&&f.test)));
 let isel=new Set(store.get("home-ings",[]).filter(k=>B[k]||M[k]));
 let vod=[0,15,30].includes(store.get("home-vodka",0))?store.get("home-vodka",0):0;
-let cv=store.get("home-vodka-each",{});
+let cv=Object.fromEntries(Object.entries(store.get("home-vodka-each",{})).filter(([k])=>byId[k]));
+let fav=new Set(store.get("home-fav",[]).filter(k=>byId[k]));
+let tonight=store.get("home-tonight",[]).filter(k=>byId[k]);
 let nowOnly=store.get("home-nowonly",true);
-const save=()=>{store.set("home-have",[...have]);store.set("home-filters",[...sel]);store.set("home-ings",[...isel]);store.set("home-vodka",vod);store.set("home-vodka-each",cv);store.set("home-nowonly",nowOnly);try{store.set("home-view",view)}catch(e){}};
+const save=()=>{store.set("home-have",[...have]);store.set("home-filters",[...sel]);store.set("home-ings",[...isel]);store.set("home-vodka",vod);store.set("home-vodka-each",cv);store.set("home-nowonly",nowOnly);store.set("home-fav",[...fav]);store.set("home-tonight",tonight);try{store.set("home-view",view)}catch(e){}};
 
 /* vodka boost: only long drinks without another strong spirit */
 const STRONG=["vodka","bourbon","cognac","genepi"];
@@ -393,6 +413,7 @@ function card(c0,n){
       <div class="abv${c.boosted?" boosted":""}"><b>~${a.toFixed(0)}%</b>${c.boosted?"מחוזק":"אלכוהול"}<br>${total} מ״ל</div></div>
     <div class="meters">${meter("חמיצות",c.s,"--sour")}${meter("מתיקות",c.w,"--sweet")}${meter("מרירות",c.b,"--bitter")}</div>
     ${tags?`<div class="tags">${tags}</div>`:""}
+    <div class="acts"><button class="heart" data-id="${c0.id}" aria-pressed="${fav.has(c0.id)}" aria-label="מועדף"><svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-9.3-9.4C1.5 7.8 3.6 4.5 7 4.5c2.1 0 3.6 1.2 5 3 1.4-1.8 2.9-3 5-3 3.4 0 5.5 3.3 4.3 6.6-1.8 4.8-9.3 9.4-9.3 9.4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button><button class="tn" data-id="${c0.id}" aria-pressed="${tonight.includes(c0.id)}">${tonight.includes(c0.id)?"✓ במה מכינים":"+ מה מכינים"}</button></div>
     ${ctl}
     <p class="why">${esc(c.why)}</p>
     <ul class="ings">${ings}</ul>
@@ -449,7 +470,7 @@ function renderList(){
   document.querySelectorAll(".vs").forEach(b=>b.setAttribute("aria-pressed",b.dataset.v===view));
   if(view==="map") renderMap();
 }
-const all=()=>{save();renderPantry();renderIng();renderVod();renderList();renderInv()};
+const all=()=>{save();renderPantry();renderIng();renderVod();renderList();renderTonight();renderInv()};
 
 $("#chips").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;const id=b.dataset.f;
   if(id==="all")sel.clear();else sel.has(id)?sel.delete(id):sel.add(id);save();renderChips();renderList()});
@@ -460,9 +481,30 @@ $("#nowonly").checked=nowOnly;
 $("#nowonly").addEventListener("change",e=>{nowOnly=e.target.checked;save();renderList()});
 $("#count").addEventListener("click",e=>{const b=e.target.closest(".addbtn");if(!b)return;have.add(b.dataset.k);all()});
 $("#vod").addEventListener("click",e=>{const b=e.target.closest(".seg");if(!b)return;vod=+b.dataset.v;cv={};save();renderVod();renderIng();renderList()});
-$("#list").addEventListener("click",e=>{const b=e.target.closest(".cseg");if(!b)return;
-  const top=b.closest(".card").getBoundingClientRect().top;cv[b.dataset.id]=+b.dataset.v;save();renderVod();renderIng();renderList();
-  const again=document.querySelector(`.cseg[data-id="${b.dataset.id}"]`);if(again){const d=again.closest(".card").getBoundingClientRect().top-top;if(d)window.scrollBy(0,d)}});
+function cardClick(e){
+  const box=e.currentTarget, b=e.target.closest(".cseg,.heart,.tn");if(!b)return;
+  const id=b.dataset.id, cardEl=b.closest(".card"), top=cardEl.getBoundingClientRect().top;
+  if(b.classList.contains("cseg")) cv[id]=+b.dataset.v;
+  else if(b.classList.contains("heart")) fav.has(id)?fav.delete(id):fav.add(id);
+  else { if(box.id==="tlist"&&tonight.includes(id)) return; tonight.includes(id)?tonight=tonight.filter(x=>x!==id):tonight.push(id); }
+  save();renderVod();renderIng();renderList();renderTonight();
+  const again=box.querySelector(`#${box.id==="tlist"?"t":"c"}-${id}`);if(again){const d=again.getBoundingClientRect().top-top;if(d)window.scrollBy(0,d)}
+}
+$("#list").addEventListener("click",cardClick);
+
+/* ---------- tonight ---------- */
+function renderTonight(){
+  $("#tcnt").textContent=tonight.length||"";
+  const arr=tonight.map(id=>byId[id]);
+  if(!arr.length){$("#tsum").innerHTML="";$("#tlist").innerHTML=`<p class="note">עוד לא בחרתם. בכל מתכון יש כפתור „+ מה מכינים”. מה שתוסיפו יופיע כאן, מוכן להכנה.</p>`;return}
+  const miss=[...new Set(arr.flatMap(missingOf))];
+  $("#tsum").innerHTML=`<div class="tsumbox"><span><b>${arr.length} משקאות להערב</b>${miss.length?` · <span style="color:var(--warn-fg)">חסר: ${miss.map(k=>esc(nameOf(k))).join(", ")}</span>`:" · יש את כל המרכיבים"}</span>
+    <span><button class="seg" id="tclear">ניקוי הרשימה</button></span></div>`;
+  $("#tlist").innerHTML=arr.map((c,i)=>card(c,i+1).replace(`id="c-${c.id}"`,`id="t-${c.id}"`).replace(`>✓ במה מכינים<`,`>הסרה מהרשימה<`)).join("");
+}
+$("#tlist").addEventListener("click",e=>{const b=e.target.closest(".tn");if(b&&tonight.includes(b.dataset.id)){tonight=tonight.filter(x=>x!==b.dataset.id);save();renderList();renderTonight();return}cardClick(e)});
+$("#tsum").addEventListener("click",e=>{if(e.target.id!=="tclear")return;
+  if(e.target.dataset.sure){tonight=[];save();renderList();renderTonight()}else{e.target.dataset.sure=1;e.target.textContent="בטוח? לחצו שוב לניקוי"}});
 
 /* ---------- taste map ---------- */
 let shown=[], view=store.get("home-view","list"), selId=null;
@@ -497,8 +539,8 @@ function openPop(id){
     <div class="pb"><button class="seg" id="popgo" aria-pressed="true">למתכון</button><button class="seg" id="popx">סגירה</button></div>`;
   $("#pop").hidden=false;
 }
-$("#map").addEventListener("click",e=>{const g=e.target.closest(".dot");if(g)openPop(+g.dataset.id)});
-$("#map").addEventListener("keydown",e=>{const g=e.target.closest(".dot");if(g&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openPop(+g.dataset.id)}});
+$("#map").addEventListener("click",e=>{const g=e.target.closest(".dot");if(g)openPop(g.dataset.id)});
+$("#map").addEventListener("keydown",e=>{const g=e.target.closest(".dot");if(g&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openPop(g.dataset.id)}});
 $("#pop").addEventListener("click",e=>{
   if(e.target.id==="popx"){selId=null;$("#pop").hidden=true;renderMap()}
   if(e.target.id==="popgo"){const id=selId;view="list";save();$("#pop").hidden=true;selId=null;renderList();
@@ -537,9 +579,8 @@ function renderInv(){
 $("#view-i").addEventListener("click",e=>{const b=e.target.closest(".stock");if(!b)return;const k=b.dataset.k;have.has(k)?have.delete(k):have.add(k);all()});
 
 /* ---------- tabs ---------- */
-function show(t){const c=t==="c";$("#view-c").hidden=!c;$("#view-i").hidden=c;
-  $("#tab-c").setAttribute("aria-selected",c);$("#tab-i").setAttribute("aria-selected",!c);window.scrollTo(0,0)}
-$("#tab-c").onclick=()=>show("c");$("#tab-i").onclick=()=>show("i");
+function show(t){["c","t","i"].forEach(x=>{$("#view-"+x).hidden=x!==t;$("#tab-"+x).setAttribute("aria-selected",x===t)});window.scrollTo(0,0)}
+["c","t","i"].forEach(x=>$("#tab-"+x).onclick=()=>show(x));
 
 renderChips();all();
 </script>
